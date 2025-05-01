@@ -1,0 +1,2 @@
+# Sign the recompiled driver
+signtool sign /fd SHA256 /f "C:\Temp\CosmosDriverCerts\CosmosDriverCert.pfx" /p Test123! /tr http://timestamp.digicert.com /td SHA256 "C:\Users\ta1on\source\repos\Cosmos\x64\Debug\Cosmos.sys"
