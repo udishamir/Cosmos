@@ -94,7 +94,11 @@
     <FilesToPackage Include="$(TargetPath)" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="callbacks.cpp" />
     <ClCompile Include="cosmos_drv.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="cosmos.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

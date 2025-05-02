@@ -5,6 +5,14 @@
     {
       "AbsoluteMoniker": "D:0:0:{A9B58E6B-D44A-C9E7-FB90-21C9AD1EC95F}|Cosmos.vcxproj|C:\\Users\\ta1on\\source\\repos\\Cosmos\\cosmos_drv.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
       "RelativeMoniker": "D:0:0:{A9B58E6B-D44A-C9E7-FB90-21C9AD1EC95F}|Cosmos.vcxproj|solutionrelative:cosmos_drv.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A9B58E6B-D44A-C9E7-FB90-21C9AD1EC95F}|Cosmos.vcxproj|C:\\Users\\ta1on\\source\\repos\\Cosmos\\callbacks.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{A9B58E6B-D44A-C9E7-FB90-21C9AD1EC95F}|Cosmos.vcxproj|solutionrelative:callbacks.cpp||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A9B58E6B-D44A-C9E7-FB90-21C9AD1EC95F}|Cosmos.vcxproj|C:\\Users\\ta1on\\source\\repos\\Cosmos\\cosmos.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}",
+      "RelativeMoniker": "D:0:0:{A9B58E6B-D44A-C9E7-FB90-21C9AD1EC95F}|Cosmos.vcxproj|solutionrelative:cosmos.h||{D0E1A5C6-B359-4E41-9B60-3365922C2A22}"
     }
   ],
   "DocumentGroupContainers": [
@@ -14,8 +22,34 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 0,
+          "SelectedChildIndex": 2,
           "Children": [
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "cosmos.h",
+              "DocumentMoniker": "C:\\Users\\ta1on\\source\\repos\\Cosmos\\cosmos.h",
+              "RelativeDocumentMoniker": "cosmos.h",
+              "ToolTip": "C:\\Users\\ta1on\\source\\repos\\Cosmos\\cosmos.h",
+              "RelativeToolTip": "cosmos.h",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAkAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000680|",
+              "WhenOpened": "2025-05-02T22:54:24.453Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "callbacks.cpp",
+              "DocumentMoniker": "C:\\Users\\ta1on\\source\\repos\\Cosmos\\callbacks.cpp",
+              "RelativeDocumentMoniker": "callbacks.cpp",
+              "ToolTip": "C:\\Users\\ta1on\\source\\repos\\Cosmos\\callbacks.cpp",
+              "RelativeToolTip": "callbacks.cpp",
+              "ViewState": "AgIAACcAAAAAAAAAAAAAAEgAAAACAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
+              "WhenOpened": "2025-05-02T22:53:21.767Z",
+              "EditorCaption": ""
+            },
             {
               "$type": "Document",
               "DocumentIndex": 0,
@@ -24,7 +58,7 @@
               "RelativeDocumentMoniker": "cosmos_drv.cpp",
               "ToolTip": "C:\\Users\\ta1on\\source\\repos\\Cosmos\\cosmos_drv.cpp",
               "RelativeToolTip": "cosmos_drv.cpp",
-              "ViewState": "AgIAABAAAAAAAAAAAAAuwDQAAAAAAAAAAAAAAA==",
+              "ViewState": "AgIAACUAAAAAAAAAAAAuwE4AAAACAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000677|",
               "WhenOpened": "2025-05-01T16:28:41.337Z",
               "EditorCaption": ""
