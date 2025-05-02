@@ -35,12 +35,16 @@ Cosmos.sys
 [Cosmos_Device.NT.Services]
 AddService = Cosmos,%SPSVCINST_ASSOCSERVICE%, Cosmos_Service_Inst
 
+[Cosmos_Service_AddReg]
+HKR,Parameters,"ProcessNotify",0x00010001,1
+
 [Cosmos_Service_Inst]
 DisplayName    = %Cosmos.SVCDESC%
 ServiceType    = 1               ; SERVICE_KERNEL_DRIVER
 StartType      = 3               ; SERVICE_DEMAND_START
 ErrorControl   = 1               ; SERVICE_ERROR_NORMAL
 ServiceBinary  = %13%\Cosmos.sys
+AddReg	       = Cosmos_Service_AddReg
 
 [Strings]
 SPSVCINST_ASSOCSERVICE= 0x00000002
