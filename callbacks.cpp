@@ -33,11 +33,6 @@ VOID ImageLoadNotifyCallback(
 			DbgPrint("Cosmos: Path Is Too Long, Image Loaded - PID: %llu, Name: %wZ\n",
 				(ULONG64)ProcessId,
 				FullImageName);
-
-
-			DbgPrint("Cosmos: Path Is Too Long, Image Filename: %.*ws\n",
-				(FullImageName->Length / sizeof(WCHAR)),
-				&FullImageName->Buffer[0]);
 		}
 	}
 	else {
