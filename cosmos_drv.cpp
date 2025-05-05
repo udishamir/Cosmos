@@ -81,7 +81,6 @@ NTSTATUS DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING Regi
 
 		RegistryPath - a pointer to our Services key in the registry.	
 	*/
-
     UNREFERENCED_PARAMETER(RegistryPath);
 
 	/*
@@ -91,12 +90,31 @@ NTSTATUS DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING Regi
 	UNICODE_STRING deviceName = RTL_CONSTANT_STRING(L"\\Device\\CosmosDevice");
 	UNICODE_STRING symLink = RTL_CONSTANT_STRING(L"\\??\\CosmosLink");
 	PDEVICE_OBJECT deviceObject = NULL;
-	UNICODE_STRING sddlPermision = RTL_CONSTANT_STRING(L"D:P(A;;FA;;;SY)(A;;FA;;;BA)");
+	UNICODE_STRING sddlPermission = RTL_CONSTANT_STRING(L"D:P(A;;GA;;;SY)(A;;GA;;;BA)");
 
-
+	// This GUID is artifical, you must never use existing GUID since other driver might need it
 	static const GUID GUID_DEVCLASS_COSMOSDEVICE =
 	{ 0xd2d16b3e, 0x2e46, 0x4a68, { 0xa4, 0x5f, 0xbe, 0xf1, 0x79, 0xc3, 0x4f, 0x51 } };
 
+	/*
+		https://learn.microsoft.com/en-us/windows-hardware/drivers/kernel/sddl-for-device-objects
+
+		Enforcing tight security, only Administrator and SYSTEM can access the device driver
+
+		D: – Discretionary ACL (DACL) begins.
+		P – Protected DACL; prevents inheritance.
+		(A;;GA;;;SY) – Allow Generic All to System.
+		(A;;GA;;;BA) – Allow Generic All to Built-in Administrators.
+
+		Never include entries for:
+		WD (Everyone)
+		BU (Users)
+		IU (Interactive Users)
+
+		IoCreateDeviceSecure require Windows Driver Kit (WDK) but its an essence to use 
+		IoCreateDeviceSecure rathe IoCreateDevice which is not secure and must be hardened from user space 
+		which is dangerous.
+	*/
 	NTSTATUS IoDeviceSecureStatus = IoCreateDeviceSecure(
 		DriverObject,
 		0,
@@ -104,7 +122,7 @@ NTSTATUS DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING Regi
 		FILE_DEVICE_UNKNOWN,
 		FILE_DEVICE_SECURE_OPEN,
 		FALSE,
-		&sddlPermision,
+		&sddlPermission,
 		&GUID_DEVCLASS_COSMOSDEVICE,
 		&deviceObject
 	);
