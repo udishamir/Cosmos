@@ -17,6 +17,33 @@ extern "C" void ImageLoadNotifyCallback(_In_opt_ PUNICODE_STRING FullImageName, 
 extern "C" void ProcessNotifyCallback(_In_ HANDLE ParentId, _In_ HANDLE ProcessId, _In_ BOOLEAN Create);
 extern "C" void ThreadNotifyCallback(_In_ HANDLE ProcessId, _In_ HANDLE ThreadId, _In_ BOOLEAN Create);
 
+NTSTATUS CosmosCreate(PDEVICE_OBJECT DeviceObject, PIRP Irp)
+{
+	UNREFERENCED_PARAMETER(DeviceObject);
+	Irp->IoStatus.Status = STATUS_SUCCESS;
+	Irp->IoStatus.Information = 0;
+	IoCompleteRequest(Irp, IO_NO_INCREMENT);
+	return STATUS_SUCCESS;
+}
+
+NTSTATUS CosmosClose(PDEVICE_OBJECT DeviceObject, PIRP Irp)
+{
+	UNREFERENCED_PARAMETER(DeviceObject);
+	Irp->IoStatus.Status = STATUS_SUCCESS;
+	Irp->IoStatus.Information = 0;
+	IoCompleteRequest(Irp, IO_NO_INCREMENT);
+	return STATUS_SUCCESS;
+}
+
+NTSTATUS CosmosCleanup(PDEVICE_OBJECT DeviceObject, PIRP Irp)
+{
+	UNREFERENCED_PARAMETER(DeviceObject);
+	Irp->IoStatus.Status = STATUS_SUCCESS;
+	Irp->IoStatus.Information = 0;
+	IoCompleteRequest(Irp, IO_NO_INCREMENT);
+	return STATUS_SUCCESS;
+}
+
 extern "C"
 NTSTATUS DriverDeviceControl(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 {
@@ -92,15 +119,17 @@ NTSTATUS DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING Regi
 	PDEVICE_OBJECT deviceObject = NULL;
 	UNICODE_STRING sddlPermission = RTL_CONSTANT_STRING(L"D:P(A;;GA;;;SY)(A;;GA;;;BA)");
 
-	// This GUID is artifical, you must never use existing GUID since other driver might need it
+	// This GUID is artifical, you must never use existing GUID since other driver might need to aquire it.
 	static const GUID GUID_DEVCLASS_COSMOSDEVICE =
 	{ 0xd2d16b3e, 0x2e46, 0x4a68, { 0xa4, 0x5f, 0xbe, 0xf1, 0x79, 0xc3, 0x4f, 0x51 } };
 
 	/*
 		https://learn.microsoft.com/en-us/windows-hardware/drivers/kernel/sddl-for-device-objects
 
-		Enforcing tight security, only Administrator and SYSTEM can access the device driver
+		Enforcing tight security, only Administrator and SYSTEM can access the device driver.
 
+		https://learn.microsoft.com/en-us/windows/win32/secauthz/security-descriptor-definition-language
+		Security Descriptor Defintion Language (SDDL): 
 		D: – Discretionary ACL (DACL) begins.
 		P – Protected DACL; prevents inheritance.
 		(A;;GA;;;SY) – Allow Generic All to System.
@@ -111,9 +140,11 @@ NTSTATUS DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING Regi
 		BU (Users)
 		IU (Interactive Users)
 
-		IoCreateDeviceSecure require Windows Driver Kit (WDK) but its an essence to use 
-		IoCreateDeviceSecure rathe IoCreateDevice which is not secure and must be hardened from user space 
-		which is dangerous.
+		IoCreateDeviceSecure require Windows Driver Kit (WDK) and include "wdmsec.h
+		Additionally the LINKER must be updated to link against wdmsec.lib 
+
+		Do not use ** IoCreateDevice ** which is not secure and must be hardened from user space inf file 
+		which is dangerous, we don't want to leave any open loose ends to user, that's a curve ball later. 
 	*/
 	NTSTATUS IoDeviceSecureStatus = IoCreateDeviceSecure(
 		DriverObject,
@@ -131,6 +162,7 @@ NTSTATUS DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING Regi
 		return IoDeviceSecureStatus;
 	}
 
+	// Less desirable but mandatory if we want user space app to communicate with us.
 	NTSTATUS IoCreateSymLink = IoCreateSymbolicLink(&symLink, &deviceName);
 	if (!NT_SUCCESS(IoCreateSymLink)) {
 		IoDeleteDevice(deviceObject);
@@ -138,85 +170,38 @@ NTSTATUS DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING Regi
 		return IoCreateSymLink;
 	}
 
-	DriverObject->MajorFunction[IRP_MJ_CLEANUP] = [](PDEVICE_OBJECT, PIRP Irp) -> NTSTATUS {
-		Irp->IoStatus.Status = STATUS_SUCCESS;
-		Irp->IoStatus.Information = 0;
-		IoCompleteRequest(Irp, IO_NO_INCREMENT);
-		return STATUS_SUCCESS;
-	};
+	// Device Create|Cleanup|Close Callbacks
+	DriverObject->MajorFunction[IRP_MJ_CREATE] = CosmosCreate;
+	DriverObject->MajorFunction[IRP_MJ_CLEANUP] = CosmosCleanup;
+	DriverObject->MajorFunction[IRP_MJ_CLOSE] = CosmosClose;
 
-	DriverObject->MajorFunction[IRP_MJ_CREATE] = [](PDEVICE_OBJECT, PIRP Irp) -> NTSTATUS {
-		Irp->IoStatus.Status = STATUS_SUCCESS;
-		Irp->IoStatus.Information = 0;
-		IoCompleteRequest(Irp, IO_NO_INCREMENT);
-		return STATUS_SUCCESS;
-	};
+	/*
+		DriverObject->MajorFunction[IRP_MJ_DEVICE_CONTROL] is an array of function pointers:
 
-	DriverObject->MajorFunction[IRP_MJ_CLOSE] = [](PDEVICE_OBJECT, PIRP Irp) -> NTSTATUS {
-		Irp->IoStatus.Status = STATUS_SUCCESS;
-		Irp->IoStatus.Information = 0;
-		IoCompleteRequest(Irp, IO_NO_INCREMENT);
-		return STATUS_SUCCESS;
-	};
+		IRP_MJ_CREATE (0x00)	Called when user calls CreateFile
+		IRP_MJ_CLOSE (0x02)	Called when user calls CloseHandle
+		IRP_MJ_DEVICE_CONTROL (0x0E)	Called when user calls DeviceIoControl
+
+		Configure the device to send the Hashtable Content To User
+	*/
+	DriverObject->MajorFunction[IRP_MJ_DEVICE_CONTROL] = DriverDeviceControl;
+
 
 	/*
 		InitProcessTable()
 
 		Initializing the process table, this table keeps track of process Pid, Ppid and ImageFilename.
 		Since right now i cannot utilize PsSetCreateProcessNotifyRoutineEx() im creating context using
-		hash table to follow process creation + loading of DLL or EXE using the PsSetImageLoadNotifyRoutine().
+		hash table to follow process creation + DLL or EXE using the PsSetImageLoadNotifyRoutine().
 
-		PsSetImageLoadNotifyRoutine() routine registers a driver-supplied callback ImageLoadNotifyCallback (In my driver),
-		that is subsequently notified whenever an image (for example, a DLL or EXE) is loaded (or mapped into memory).
-
-		PsSetImageLoadNotifyRoutine() points to PLOAD_IMAGE_NOTIFY_ROUTINE structure callback which have the following members:
-
-		```
-		PLOAD_IMAGE_NOTIFY_ROUTINE PloadImageNotifyRoutine;
-
-		void PloadImageNotifyRoutine(
-		  [in, optional] PUNICODE_STRING FullImageName,
-		  [in]           HANDLE ProcessId,
-		  [in]           PIMAGE_INFO ImageInfo
-		)
-		```
-
-		hence to correlate Pid, Ppid and ImageFileName into single data structure i need to keep state.
-
-		This single data structure will be sent back to user mode when the user app will initiate call to DeviceIoControl()
+		Motivation is to to initialize single data structure that will sent data up to user when the user
+		app will initiate DeviceIoControl() request.
 	*/
 	InitProcessTable();
 
-	/*
-		DriverDeviceControl()
-
-		Registering the device control function using MajorFunction[IRP_MD_DEVICE_CONTROL] which points
-		the Driver DRIVER_OBJECT.
-
-		DRIVE_OBJECT:
-		https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/ns-wdm-_driver_object
-		Pointer to the device objects created by the driver. 
-		This member is automatically updated when the driver calls IoCreateDevice successfully. 
-		A driver can use this member and the NextDevice member of DEVICE_OBJECT 
-		to step through a list of all the device objects that the driver created.
-
-		When user code will call DeviceIoControl() function from user space the DriverDeviceControl function will be called.
-		
-		https://learn.microsoft.com/en-us/windows/win32/api/ioapiset/nf-ioapiset-deviceiocontrol
-
-		DriverObject->MajorFunction[IRP_MJ_DEVICE_CONTROL] is an array of function pointers:
-		I
-	RP_MJ_CREATE (0x00)	Called when user calls CreateFile
-		IRP_MJ_CLOSE (0x02)	Called when user calls CloseHandle
-		IRP_MJ_DEVICE_CONTROL (0x0E)	Called when user calls DeviceIoControl
-	*/
-	DriverObject->MajorFunction[IRP_MJ_DEVICE_CONTROL] = DriverDeviceControl;
-
-	/*
-		Registering PsSetImageLoadNotifyRoutine() is useful when monitoring DLL/EXE
-		execution. The motivation is to get the ImageFileName since i cannot use PsSetCreateNotifyRoutineEx due to
-		Microsoft strict requirements where self signed drivers cannot utilize it.
-	*/
+	
+	// Registering PsSetImageLoadNotifyRoutine()
+	
 	NTSTATUS LoadImageMon = PsSetLoadImageNotifyRoutine(ImageLoadNotifyCallback);
 	if (!NT_SUCCESS(LoadImageMon)) {
 		DbgPrint("Cosmos: Failed to register image load notification callback (0x%08X)\n", LoadImageMon);
@@ -254,6 +239,7 @@ VOID DriverUnload(_In_ PDRIVER_OBJECT DriverObject)
 	UNICODE_STRING symLink = RTL_CONSTANT_STRING(L"\\??\\CosmosLink");
 	IoDeleteSymbolicLink(&symLink);
 
+	// Remove Device From User
 	if (DriverObject->DeviceObject) {
 		IoDeleteDevice(DriverObject->DeviceObject);
 	}
