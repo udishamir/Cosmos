@@ -1,4 +1,5 @@
 #include "cosmos.h"
+#include "proc_hashlist.h"
 
 // Image load notification callback
 extern "C"
@@ -51,6 +52,11 @@ VOID ImageLoadNotifyCallback(
 	}
 	else {
 		DbgPrint("Cosmos: This is a user-mode image\n");
+
+		// Making sure we get the Full image file name and not system image DLL's, EXE's
+		if (FullImageName && !ImageInfo->SystemModeImage) {
+			TrackProcess(ProcessId, 0, FullImageName, FALSE);
+		}
 	}
 }
 
@@ -62,11 +68,10 @@ VOID ProcessNotifyCallback(
 	_In_ BOOLEAN Create
 ) {
 	if (Create) {
-		DbgPrint("Cosmos: Process Created - Parent PID: %llu, PID: %llu\n",
-			(ULONG64)ParentId,
-			(ULONG64)ProcessId);
+		TrackProcess(ProcessId, ParentId, NULL, TRUE);
 	}
 	else {
+		TrackProcess(ProcessId, 0, NULL, FALSE);
 		DbgPrint("Cosmos: Process Deleted - PID: %llu\n", (ULONG64)ProcessId);
 	}
 }
@@ -78,6 +83,10 @@ VOID ThreadNotifyCallback(
 	_In_ HANDLE ThreadId,
 	_In_ BOOLEAN Create
 ) {
+	UNREFERENCED_PARAMETER(ThreadId);
+	UNREFERENCED_PARAMETER(Create);
+	UNREFERENCED_PARAMETER(ProcessId);
+	/*
 	if (Create) {
 		DbgPrint("Cosmos: Thread Created - PID: %llu, TID: %llu\n",
 			(ULONG64)ProcessId,
@@ -88,4 +97,5 @@ VOID ThreadNotifyCallback(
 			(ULONG64)ProcessId,
 			(ULONG64)ThreadId);
 	}
+	*/
 }

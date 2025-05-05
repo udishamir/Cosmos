@@ -30,10 +30,22 @@
     <ClCompile Include="callbacks.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="proc_hashlist.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="cosmos.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="proc_hashlist.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="cosmos_ioctl.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
   </ItemGroup>
 </Project>
