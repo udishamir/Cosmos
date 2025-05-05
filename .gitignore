@@ -1,0 +1,22 @@
+# Ignore NuGet packages
+packages/
+*.nupkg
+*.snupkg
+*.nuspec
+
+# VS-generated dirs
+.vs/
+x64/
+x86/
+Debug/
+Release/
+*.obj
+*.pdb
+*.ipch
+*.tlog
+*.lastbuildstate
+*.log
+*.cache
+*.user
+*.VC.db
+*.VC.opendb
