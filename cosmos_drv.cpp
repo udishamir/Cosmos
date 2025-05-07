@@ -63,10 +63,17 @@ NTSTATUS DriverDeviceControl(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 			ULONG outLen = stack->Parameters.DeviceIoControl.OutputBufferLength;
 			if (outLen < sizeof(COSMOS_PROC_INFO)) {
 				status = STATUS_BUFFER_TOO_SMALL;
+
 				break;
 			}
 
 			COSMOS_PROC_INFO* outBuf = (COSMOS_PROC_INFO *)Irp->AssociatedIrp.SystemBuffer;
+			if (!outBuf) {
+				status = STATUS_INVALID_PARAMETER;
+
+				break;
+			}
+
 			ULONG maxCount = outLen / sizeof(COSMOS_PROC_INFO);
 			ULONG returned = 0;
 
@@ -87,6 +94,7 @@ NTSTATUS DriverDeviceControl(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 	Irp->IoStatus.Status = status;
 	Irp->IoStatus.Information = info;
 	IoCompleteRequest(Irp, IO_NO_INCREMENT);
+
 	return status;
 }
 
@@ -110,16 +118,18 @@ NTSTATUS DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING Regi
 	*/
     UNREFERENCED_PARAMETER(RegistryPath);
 
+	UNICODE_STRING deviceName = RTL_CONSTANT_STRING(L"\\Device\\CosmosDevice");
+	UNICODE_STRING symLink = RTL_CONSTANT_STRING(L"\\??\\CosmosLink");
+	PDEVICE_OBJECT deviceObject = NULL;
+	// SDDL Permission
+	UNICODE_STRING sddlPermission = RTL_CONSTANT_STRING(L"D:P(A;;GA;;;SY)(A;;GA;;;BA)");
+	
+
 	/*
 		Creating device link to allow user app connecting to the driver
 		https://github.com/microsoft/Windows-driver-samples/blob/main/general/ioctl/wdm/sys/sioctl.c
 	*/
-	UNICODE_STRING deviceName = RTL_CONSTANT_STRING(L"\\Device\\CosmosDevice");
-	UNICODE_STRING symLink = RTL_CONSTANT_STRING(L"\\??\\CosmosLink");
-	PDEVICE_OBJECT deviceObject = NULL;
-	UNICODE_STRING sddlPermission = RTL_CONSTANT_STRING(L"D:P(A;;GA;;;SY)(A;;GA;;;BA)");
-
-	// This GUID is artifical, you must never use existing GUID since other driver might need to aquire it.
+	// This GUID is artificial, you must never use existing GUID since other driver might need to aquire it.
 	static const GUID GUID_DEVCLASS_COSMOSDEVICE =
 	{ 0xd2d16b3e, 0x2e46, 0x4a68, { 0xa4, 0x5f, 0xbe, 0xf1, 0x79, 0xc3, 0x4f, 0x51 } };
 
@@ -141,9 +151,12 @@ NTSTATUS DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING Regi
 		IU (Interactive Users)
 
 		IoCreateDeviceSecure require Windows Driver Kit (WDK) and include "wdmsec.h
-		Additionally the LINKER must be updated to link against wdmsec.lib 
+		Additionally the LINKER must be updated to link against wdmsec.lib.
 
-		Do not use ** IoCreateDevice ** which is not secure and must be hardened from user space inf file 
+		If using Vs2022 you can utilize NuGet plugin manager:
+		https://learn.microsoft.com/en-us/windows-hardware/drivers/install-the-wdk-using-nuget
+
+		Do not use **IoCreateDevice** which is not secure. IoCreateDevice must be hardened from user space usually using INF file 
 		which is dangerous, we don't want to leave any open loose ends to user, that's a curve ball later. 
 	*/
 	NTSTATUS IoDeviceSecureStatus = IoCreateDeviceSecure(
@@ -170,18 +183,19 @@ NTSTATUS DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING Regi
 		return IoCreateSymLink;
 	}
 
-	// Device Create|Cleanup|Close Callbacks
+	/*
+		Device CREATE | CLEANUP | CLOSE Callbacks
+
+		IRP_MJ_CREATE (0x00 Called when user calls CreateFile
+		IRP_MJ_CLOSE (0x02)	Called when user calls CloseHandle
+		IRP_MJ_DEVICE_CONTROL (0x0E) Called when user calls DeviceIoControl
+	*/
 	DriverObject->MajorFunction[IRP_MJ_CREATE] = CosmosCreate;
 	DriverObject->MajorFunction[IRP_MJ_CLEANUP] = CosmosCleanup;
 	DriverObject->MajorFunction[IRP_MJ_CLOSE] = CosmosClose;
 
 	/*
 		DriverObject->MajorFunction[IRP_MJ_DEVICE_CONTROL] is an array of function pointers:
-
-		IRP_MJ_CREATE (0x00)	Called when user calls CreateFile
-		IRP_MJ_CLOSE (0x02)	Called when user calls CloseHandle
-		IRP_MJ_DEVICE_CONTROL (0x0E)	Called when user calls DeviceIoControl
-
 		Configure the device to send the Hashtable Content To User
 	*/
 	DriverObject->MajorFunction[IRP_MJ_DEVICE_CONTROL] = DriverDeviceControl;
@@ -234,9 +248,9 @@ extern "C"
 VOID DriverUnload(_In_ PDRIVER_OBJECT DriverObject)
 {
 	UNREFERENCED_PARAMETER(DriverObject);
+	UNICODE_STRING symLink = RTL_CONSTANT_STRING(L"\\??\\CosmosLink");
 
 	// Removing driver link
-	UNICODE_STRING symLink = RTL_CONSTANT_STRING(L"\\??\\CosmosLink");
 	IoDeleteSymbolicLink(&symLink);
 
 	// Remove Device From User

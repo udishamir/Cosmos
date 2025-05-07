@@ -1,6 +1,4 @@
 #pragma once
-// process_hashlist.h
-#pragma once
 
 #include "cosmos.h"
 #include "cosmos_ioctl.h"

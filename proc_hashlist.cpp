@@ -177,22 +177,29 @@ NTSTATUS CosmosCopyTrackedProcessesToUser(
     ULONG MaxCount,
     ULONG* ReturnedCount
 ) {
+    ULONG copied = 0;
+
     if (!UserBuffer || !ReturnedCount || MaxCount == 0) {
         return STATUS_INVALID_PARAMETER;
     }
 
     ExAcquireFastMutex(&g_HashTableLock);
 
-    ULONG copied = 0;
     for (int i = 0; i < HASH_BUCKETS && copied < MaxCount; ++i) {
         PROCESS_ENTRY* entry = g_HashTable[i];
         while (entry && copied < MaxCount) {
+            RtlZeroMemory(&UserBuffer[copied], sizeof(COSMOS_PROC_INFO));
+
             UserBuffer[copied].Pid = (ULONG_PTR)entry->ProcessId;
             UserBuffer[copied].Ppid = (ULONG_PTR)entry->ParentProcessId;
 
             if (entry->ImageCaptured && entry->ImageFileName.Buffer) {
-                USHORT len = min(entry->ImageFileName.Length / sizeof(WCHAR), COSMOS_MAX_PATH - 1);
-                // Copy the image into user buffer
+                USHORT len = entry->ImageFileName.Length / sizeof(WCHAR);
+                // Making sure there is null termination
+                if (len >= COSMOS_MAX_PATH) {
+                    len = COSMOS_MAX_PATH - 1;
+                }
+
                 RtlCopyMemory(UserBuffer[copied].ImageFileName, entry->ImageFileName.Buffer, len * sizeof(WCHAR));
                 UserBuffer[copied].ImageFileName[len] = L'\0';
             }
@@ -207,6 +214,8 @@ NTSTATUS CosmosCopyTrackedProcessesToUser(
 
     *ReturnedCount = copied;
     ExReleaseFastMutex(&g_HashTableLock);
+
+    DbgPrint("Cosmos: Returned %lu entries (max %lu)", copied, MaxCount);
 
     return STATUS_SUCCESS;
 }
