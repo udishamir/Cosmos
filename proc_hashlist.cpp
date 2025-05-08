@@ -143,6 +143,8 @@ PROCESS_ENTRY* CosmosLookupProcessByPid(HANDLE pid) {
 
 // Being called from the IOCTL only
 VOID CosmosDumpTrackedProcesses() {
+
+    // Before trying copy hash table content to user space
     ExAcquireFastMutex(&g_HashTableLock);
 
     // Tracking max user processes

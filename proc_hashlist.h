@@ -1,5 +1,14 @@
 #pragma once
 
+// Comment out for production builds
+#define COSMOS_DEBUG_LOGGING 0
+
+#if COSMOS_DEBUG_LOGGING
+#define COSMOS_LOG(...) DbgPrint(__VA_ARGS__)
+#else
+#define COSMOS_LOG(...) do {} while (0)
+#endif
+
 #include "cosmos.h"
 #include "cosmos_ioctl.h"
 
