@@ -104,7 +104,6 @@ VOID TrackProcess(HANDLE pid, HANDLE ppid, PUNICODE_STRING ImageName, BOOLEAN Cr
         g_HashTable[idx] = curr;
     }
 
-	// If process memory is not allocated
     if (!Create && ImageName && !curr->ImageCaptured && curr->ImageFileName.Buffer == NULL) {
         SIZE_T allocSize = ImageName->Length + sizeof(WCHAR);
 
@@ -119,7 +118,6 @@ VOID TrackProcess(HANDLE pid, HANDLE ppid, PUNICODE_STRING ImageName, BOOLEAN Cr
             curr->ImageCaptured = TRUE;
         }
     }
-
 
     ExReleaseFastMutex(&g_HashTableLock);
 }

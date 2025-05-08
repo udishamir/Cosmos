@@ -30,10 +30,18 @@ VOID ImageLoadNotifyCallback(
         If i got callback from PsSetCreateProcessNotifyRoutine and tracked it (entry == PID),
         however PsSetLoadImageNotifyRoutine was not called yet, add the entry since i got FullImageName
     */
-    if (entry && !entry->ImageCaptured) {
-        COSMOS_LOG("Cosmos: Capturing image for PID %llu: %wZ\n", (ULONG64)ProcessId, FullImageName);
+
+    if (!entry) {
+        // First time seeing this PID at all -> create new and capture image
+        COSMOS_LOG("Cosmos: Creating and capturing image for PID %llu: %wZ\n", (ULONG64)ProcessId, FullImageName);
+        TrackProcess(ProcessId, 0, FullImageName, TRUE);
+    }
+    else if (!entry->ImageCaptured) {
+        // Entry exists, but image wasn't captured yet
+        COSMOS_LOG("Cosmos: Updating image for PID %llu: %wZ\n", (ULONG64)ProcessId, FullImageName);
         TrackProcess(ProcessId, 0, FullImageName, FALSE);
     }
+
 }
 
 // Process creation notification callback
