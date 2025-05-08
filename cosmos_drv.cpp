@@ -210,6 +210,9 @@ NTSTATUS DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING Regi
 
 		Motivation is to to initialize single data structure that will sent data up to user when the user
 		app will initiate DeviceIoControl() request.
+
+		If ill manage to get Microsoft signing my driver i could utilize PsSetCreateProcessNotifyRoutineEx() and wont need 
+		PsSetImageLoadNotifyRoutine() to extract ImageFileName
 	*/
 	InitProcessTable();
 

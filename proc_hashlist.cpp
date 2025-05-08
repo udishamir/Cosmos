@@ -69,27 +69,26 @@ VOID CleanupProcessTable() {
 }
 
 VOID TrackProcess(HANDLE pid, HANDLE ppid, PUNICODE_STRING ImageName, BOOLEAN Create) {
-    // returning new key
     ULONG idx = HashPid(pid);
 
-    // Locking Table before updating
     ExAcquireFastMutex(&g_HashTableLock);
 
+    // Look up the process entry in the hash table
     PROCESS_ENTRY* curr = g_HashTable[idx];
     while (curr) {
-		//If process is all ready in the table
         if (curr->ProcessId == pid) {
             break;
         }
         curr = curr->Next;
     }
 
+    // Event is not create and pid doesn't exist 
     if (!Create && curr == NULL) {
         ExReleaseFastMutex(&g_HashTableLock);
-        return; // safe exit on deletion if entry not found
+        return;
     }
 
-	// Updating Table && Allocating memory for new process
+    // New process, allocate resources and add to the hash table
     if (Create && !curr) {
         curr = (PROCESS_ENTRY*)ExAllocatePool2(POOL_FLAG_NON_PAGED, sizeof(PROCESS_ENTRY), COSMOS_TAG);
         if (!curr) {
@@ -100,13 +99,15 @@ VOID TrackProcess(HANDLE pid, HANDLE ppid, PUNICODE_STRING ImageName, BOOLEAN Cr
         RtlZeroMemory(curr, sizeof(PROCESS_ENTRY));
         curr->ProcessId = pid;
         curr->ParentProcessId = ppid;
+        curr->ImageCaptured = FALSE;
+        curr->Terminated = FALSE;
         curr->Next = g_HashTable[idx];
         g_HashTable[idx] = curr;
     }
 
-    if (!Create && ImageName && !curr->ImageCaptured && curr->ImageFileName.Buffer == NULL) {
+    // If Process exist, image name is provided but not initalized, add it
+    if (ImageName && curr && !curr->ImageCaptured && curr->ImageFileName.Buffer == NULL) {
         SIZE_T allocSize = ImageName->Length + sizeof(WCHAR);
-
         PWSTR buffer = (PWSTR)ExAllocatePool2(POOL_FLAG_NON_PAGED, allocSize, COSMOS_TAG);
         if (buffer) {
             RtlCopyMemory(buffer, ImageName->Buffer, ImageName->Length);
@@ -121,6 +122,7 @@ VOID TrackProcess(HANDLE pid, HANDLE ppid, PUNICODE_STRING ImageName, BOOLEAN Cr
 
     ExReleaseFastMutex(&g_HashTableLock);
 }
+
  
 PROCESS_ENTRY* CosmosLookupProcessByPid(HANDLE pid) {  
    ULONG idx = HashPid(pid);  

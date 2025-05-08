@@ -122,7 +122,7 @@ fn poll_driver_loop() {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("CosmosGuard starting process monitor in background thread...");
+    println!("CosmosGuard starting process monitor ...");
 
     let handle = thread::spawn(poll_driver_loop);
 

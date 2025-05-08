@@ -19,7 +19,7 @@ VOID ImageLoadNotifyCallback(
         COSMOS_LOG("Cosmos: Skipping kernel-mode image for PID %llu\n", (ULONG64)ProcessId);
         return;
     }
-
+    
     if (!FullImageName || !FullImageName->Buffer || FullImageName->Length == 0) {
         COSMOS_LOG("Cosmos: Skipping image load with empty name for PID %llu\n", (ULONG64)ProcessId);
         return;
