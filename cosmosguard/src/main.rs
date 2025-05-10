@@ -28,6 +28,8 @@ const METHOD_BUFFERED: u32 = 0x0;
 struct COSMOS_PROC_INFO {
     pid: usize,
     ppid: usize,
+    image_base: usize,
+    image_size: usize,
     image_file_name: [u16; COSMOS_MAX_PATH],
 }
 
@@ -74,6 +76,8 @@ fn poll_driver_loop() {
             COSMOS_PROC_INFO {
                 pid: 0,
                 ppid: 0,
+                image_base: 0,
+                image_size: 0,
                 image_file_name: [0u16; COSMOS_MAX_PATH],
             };
             MAX_PROCESSES
@@ -107,18 +111,23 @@ fn poll_driver_loop() {
                     .iter()
                     .position(|&c| c == 0)
                     .unwrap_or(COSMOS_MAX_PATH);
+
                 let name = String::from_utf16_lossy(&proc.image_file_name[..end]);
+
+                // Might be malformed data from Kernel ??
+                if proc.image_base == 0 || proc.image_size == 0 {
+                    continue;
+                }
+
                 println!(
-                    "PID: {:>6} | PPID: {:>6} | Image: {}",
-                    proc.pid, proc.ppid, name
+                    "PID: {:>6} | PPID: {:>6} | ImageBase: {:#x} | ImageSize: {:#x} | Image: {}",
+                    proc.pid, proc.ppid, proc.image_base, proc.image_size, name
                 );
             }
         }
 
         thread::sleep(Duration::from_millis(200));
     }
-
-    // `device` is dropped automatically here
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

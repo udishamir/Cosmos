@@ -7,5 +7,7 @@
 typedef struct _COSMOS_PROC_INFO {
     ULONG_PTR Pid;
     ULONG_PTR Ppid;
+    ULONG_PTR ImageBase;
+    SIZE_T  ImageSize;
     WCHAR ImageFileName[COSMOS_MAX_PATH]; // null-terminated
 } COSMOS_PROC_INFO;

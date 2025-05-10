@@ -68,7 +68,7 @@ VOID CleanupProcessTable() {
     ExReleaseFastMutex(&g_HashTableLock);
 }
 
-VOID TrackProcess(HANDLE pid, HANDLE ppid, PUNICODE_STRING ImageName, BOOLEAN Create) {
+VOID TrackProcess(HANDLE pid, HANDLE ppid, ULONG_PTR ImageBase, SIZE_T ImageSize, PUNICODE_STRING ImageName, BOOLEAN Create) {
     ULONG idx = HashPid(pid);
 
     ExAcquireFastMutex(&g_HashTableLock);
@@ -99,10 +99,26 @@ VOID TrackProcess(HANDLE pid, HANDLE ppid, PUNICODE_STRING ImageName, BOOLEAN Cr
         RtlZeroMemory(curr, sizeof(PROCESS_ENTRY));
         curr->ProcessId = pid;
         curr->ParentProcessId = ppid;
+        curr->ImageBase = ImageBase;
+        curr->ImageSize = ImageSize;
         curr->ImageCaptured = FALSE;
         curr->Terminated = FALSE;
         curr->Next = g_HashTable[idx];
         g_HashTable[idx] = curr;
+    }
+    
+    /*
+        Protecting from overwriting ImageBase | curr->ImageBase if both are not 0
+    */
+    if (ImageBase == 0 && curr->ImageBase == 0) {
+        curr->ImageBase = 0;
+    }
+
+    /*
+        Protecting from overwriting ImageSize | curr->ImageSize if both are not 0
+    */
+    if (ImageSize == 0 && curr->ImageSize == 0) {
+        curr->ImageSize = ImageSize;
     }
 
     // If Process exist, image name is provided but not initalized, add it
@@ -151,22 +167,28 @@ VOID CosmosDumpTrackedProcesses() {
     int count = 0;
 
     // Making sure we get all process hash table && not exceeding max user process entries
-    for (int i = 0; i < HASH_BUCKETS; ++i && count < MAX_USER_PROCESSES) {
+    // Making sure we get all process hash table && not exceeding max user process entries
+    for (int i = 0; i < HASH_BUCKETS && count < MAX_USER_PROCESSES; ++i) {
         PROCESS_ENTRY* entry = g_HashTable[i];
-        while (entry) {
+        while (entry && count < MAX_USER_PROCESSES) {
             if (entry->ImageCaptured && entry->ImageFileName.Buffer) {
-                DbgPrint("Cosmos: PID=%llu, PPID=%llu, Image=%wZ\n",
+                COSMOS_LOG("Cosmos: PID=%llu | PPID=%llu | Base=0x%p | Size=0x%Ix | Image=%wZ\n",
                     (ULONG64)entry->ProcessId,
                     (ULONG64)entry->ParentProcessId,
+                    (PVOID)entry->ImageBase,
+                    entry->ImageSize,
                     &entry->ImageFileName);
             }
             else {
-                DbgPrint("Cosmos: PID=%llu, PPID=%llu, Image=Not Available\n",
+                COSMOS_LOG("Cosmos: PID=%llu | PPID=%llu | Base=0x%p | Size=0x%Ix | Image=Not Available\n",
                     (ULONG64)entry->ProcessId,
-                    (ULONG64)entry->ParentProcessId);
+                    (ULONG64)entry->ParentProcessId,
+                    (PVOID)entry->ImageBase,
+                    entry->ImageSize);
             }
+
             entry = entry->Next;
-            count = ++i;
+            ++count;
         }
     }
 
@@ -194,6 +216,8 @@ NTSTATUS CosmosCopyTrackedProcessesToUser(
 
             UserBuffer[copied].Pid = (ULONG_PTR)entry->ProcessId;
             UserBuffer[copied].Ppid = (ULONG_PTR)entry->ParentProcessId;
+            UserBuffer[copied].ImageBase = (ULONG_PTR)entry->ImageBase;
+            UserBuffer[copied].ImageSize = (SIZE_T)entry->ImageSize;
 
             if (entry->ImageCaptured && entry->ImageFileName.Buffer) {
                 USHORT len = entry->ImageFileName.Length / sizeof(WCHAR);
@@ -217,7 +241,7 @@ NTSTATUS CosmosCopyTrackedProcessesToUser(
     *ReturnedCount = copied;
     ExReleaseFastMutex(&g_HashTableLock);
 
-    DbgPrint("Cosmos: Returned %lu entries (max %lu)", copied, MaxCount);
+    COSMOS_LOG("Cosmos: Returned %lu | Entries (max %lu)", copied, MaxCount);
 
     return STATUS_SUCCESS;
 }

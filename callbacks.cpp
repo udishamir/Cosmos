@@ -33,13 +33,22 @@ VOID ImageLoadNotifyCallback(
 
     if (!entry) {
         // First time seeing this PID at all -> create new and capture image
-        COSMOS_LOG("Cosmos: Creating and capturing image for PID %llu: %wZ\n", (ULONG64)ProcessId, FullImageName);
-        TrackProcess(ProcessId, 0, FullImageName, TRUE);
+        COSMOS_LOG("Cosmos: Creating and capturing image for PID %llu | Base: 0x%p | Size: 0x%Ix | Name: %wZ\n",
+            (ULONG64)ProcessId,
+            (PVOID)ImageInfo->ImageBase,
+            ImageInfo->ImageSize,
+            FullImageName);
+
+        TrackProcess(ProcessId, 0, (ULONG_PTR)ImageInfo->ImageBase, ImageInfo->ImageSize, FullImageName, TRUE);
     }
     else if (!entry->ImageCaptured) {
         // Entry exists, but image wasn't captured yet
-        COSMOS_LOG("Cosmos: Updating image for PID %llu: %wZ\n", (ULONG64)ProcessId, FullImageName);
-        TrackProcess(ProcessId, 0, FullImageName, FALSE);
+        COSMOS_LOG("Cosmos: Creating and capturing image for PID %llu | Base: 0x%p | Size: 0x%Ix\n",
+            (ULONG64)ProcessId,
+            (PVOID)ImageInfo->ImageBase,
+            ImageInfo->ImageSize);
+
+        TrackProcess(ProcessId, 0, (ULONG_PTR)ImageInfo->ImageBase, ImageInfo->ImageSize, FullImageName, FALSE);
     }
 
 }
@@ -52,13 +61,13 @@ VOID ProcessNotifyCallback(
     _In_ BOOLEAN Create
 ) {
     if (Create) {
-        COSMOS_LOG("Cosmos: Process Created - PID: %llu, PPID: %llu\n",
+        COSMOS_LOG("Cosmos: Process Created PID: %llu | PPID: %llu\n",
             (ULONG64)ProcessId, (ULONG64)ParentId);
-        TrackProcess(ProcessId, ParentId, NULL, TRUE);
+        TrackProcess(ProcessId, ParentId, 0 , 0x0,  NULL, TRUE);
     }
     else {
-        COSMOS_LOG("Cosmos: Process Deleted - PID: %llu\n", (ULONG64)ProcessId);
-        TrackProcess(ProcessId, 0, NULL, FALSE);
+        COSMOS_LOG("Cosmos: Process Deleted PID: %llu\n", (ULONG64)ProcessId);
+        TrackProcess(ProcessId, 0, 0, 0X0, NULL, FALSE);
     }
 }
 

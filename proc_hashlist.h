@@ -18,6 +18,8 @@
 typedef struct _PROCESS_ENTRY {
     HANDLE ProcessId;
     HANDLE ParentProcessId;
+    ULONG_PTR ImageBase;
+    SIZE_T ImageSize;
     UNICODE_STRING ImageFileName;
     BOOLEAN ImageCaptured;
     BOOLEAN Terminated;
@@ -27,7 +29,7 @@ typedef struct _PROCESS_ENTRY {
 VOID InitProcessTable();
 VOID CleanupProcessTable();
 VOID CosmosDumpTrackedProcesses();
-VOID TrackProcess(HANDLE pid, HANDLE ppid, PUNICODE_STRING ImageName, BOOLEAN Create);
+VOID TrackProcess(HANDLE pid, HANDLE ppid, ULONG_PTR ImageBase, SIZE_T ImageSize, PUNICODE_STRING ImageName, BOOLEAN Create);
 
 NTSTATUS CosmosCopyTrackedProcessesToUser(
     COSMOS_PROC_INFO* UserBuffer,
