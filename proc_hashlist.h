@@ -1,3 +1,13 @@
+/*
+	Cosmos XDR Driver
+
+    © 2024–2025 Udi Shamir. All Rights Reserved.
+    Unauthorized copying of this file, via any medium, is strictly prohibited.
+    Proprietary and confidential.
+
+    Author: Udi Shamir
+*/
+
 #pragma once
 
 // Comment out for production builds

@@ -1,6 +1,13 @@
 /*
-    CosmosGuard Very simple process monitoring using Cosmos Driver
+    Cosmos XDR
+
+    © 2024–2025 Udi Shamir. All Rights Reserved.
+    Unauthorized copying of this file, via any medium, is strictly prohibited.
+    Proprietary and confidential.
+
+    Author: Udi Shamir
 */
+
 use std::{collections::HashSet, ffi::OsStr, os::windows::ffi::OsStrExt, thread, time::Duration};
 use windows::{
     Win32::{

@@ -1,10 +1,13 @@
 ﻿/*
-	References: 
-	https://github.com/AdaCore/gsh/tree/master/os/src
+	Cosmos XDR Driver
 
-	ObRegisterCallBack & CounterMeasures
-	https://douggemhax.wordpress.com/2015/05/27/obregistercallbacks-and-countermeasures/
+    © 2024–2025 Udi Shamir. All Rights Reserved.
+    Unauthorized copying of this file, via any medium, is strictly prohibited.
+    Proprietary and confidential.
+
+    Author: Udi Shamir
 */
+
 #pragma comment(lib, "wdmsec.lib")
 
 #include "cosmos.h"

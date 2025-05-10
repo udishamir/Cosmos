@@ -1,12 +1,11 @@
 /*
-    Since we lack the option of utilizing extended (Ex) functions such as 
-	PsSetCreateProcessNotifyRoutineEx and PsSetCreateThreadNotifyRoutineEx, i need to create enhanced 
-	process / thread tracking combining data from PsSetLoadImageNotifyRoutine, this limitation suppose 
-	to be lifted once i can sign the driver with Microsoft certificates.
+	Cosmos XDR Driver
 
-	The process hash table is a simple hash table that stores information about processes.
-	It uses a linked list to handle collisions. The hash function is based on the process ID.
-	The table is protected by a fast mutex to ensure thread safety.
+    © 2024–2025 Udi Shamir. All Rights Reserved.
+    Unauthorized copying of this file, via any medium, is strictly prohibited.
+    Proprietary and confidential.
+
+    Author: Udi Shamir
 */
 
 #include <ntifs.h>
