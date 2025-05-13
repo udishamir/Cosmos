@@ -70,14 +70,60 @@ VOID ProcessNotifyCallback(
     _In_ HANDLE ProcessId,
     _In_ BOOLEAN Create
 ) {
+  
+    /*
+        In case process is created however it was not captured by PsSetImageLoadNotifyRoutine, this might 
+        happen in the following cases:
+
+        1. Timing, process was created too fast
+        2. Is not available due to signing issue
+
+        When this happen im trying to get pointer to EPROCESS abd locating the FullImageName as with PsSetImageLoadNotifyRoutine().
+        EPROCESS is undocumented by Microsoft,
+        there unofficial EPROCESS struct can be found at: https://www.nirsoft.net/kernel_struct/vista/EPROCESS.html
+    
+    */
+    PEPROCESS eproc = NULL;
+    PUNICODE_STRING process_name = NULL;
+ 
+    NTSTATUS process_lookup = STATUS_SUCCESS;
+    NTSTATUS se_locate_process_imagename = STATUS_SUCCESS;
+
     if (Create) {
+        // Getting EPROCESS
+        process_lookup = PsLookupProcessByProcessId(ProcessId, &eproc);
+        if (NT_SUCCESS(process_lookup)) {
+            se_locate_process_imagename = SeLocateProcessImageName(eproc, &process_name);
+            if (NT_SUCCESS(se_locate_process_imagename)) {
+                DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_ERROR_LEVEL, "Cosmos: EPROCESS Process Pid: (%llu) Process image name: (%wZ)\n",
+                    (ULONG64)(ULONG_PTR)ProcessId,
+                    process_name);
+
+                /*
+                    Need to get both VritualSize and ImageBase from EPROCESS
+                    ...
+                */
+
+                // If SeLocateProcessImageName return with success we must free process_name
+                if (process_name) {
+                    ExFreePoolWithTag(process_name, 0);
+                }
+            }
+
+            // Dereference Object
+            ObDereferenceObject(eproc);
+        }
+        else {
+            // Could not get EPROCESS, still register PID
+            TrackProcess(ProcessId, ParentId, 0, 0, NULL, TRUE);
+        }
+
         COSMOS_LOG("Cosmos: Process Created PID: %llu | PPID: %llu\n",
             (ULONG64)ProcessId, (ULONG64)ParentId);
-        TrackProcess(ProcessId, ParentId, 0 , 0x0,  NULL, TRUE);
     }
     else {
         COSMOS_LOG("Cosmos: Process Deleted PID: %llu\n", (ULONG64)ProcessId);
-        TrackProcess(ProcessId, 0, 0, 0X0, NULL, FALSE);
+        TrackProcess(ProcessId, 0, (ULONG_PTR)0, 0, NULL, FALSE);
     }
 }
 

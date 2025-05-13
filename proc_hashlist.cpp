@@ -14,13 +14,13 @@
 
 /*
     Using 1031 prime number with modulus to reduce collisions.
-	While modulus works well with power of 2 it will be using only the least significant bits of the hash value.
-	This is because of the way the bitwise operation works, it tends to align the data in the system memory layout.
 
 	Using 1031 will help to reduce collision and distribute the data more evenly across the hash table. For short lived
     driver this is not really big of a deal but since this is an XDR driver it will be long lived, as long as the system is up.
 
-    NOTE: collisions cannot be avoided completely but it will be reduced comparing to using power of 2.
+    For small process table it is mostly insignificant.
+
+    NOTE: collisions can not be avoided completely but it will be reduced comparing to using power of 2 with large process table.
 */
 #define HASH_BUCKETS 1031
 #define COSMOS_TAG 'XSMC' // This is Cosmos Marker For The Memory Management 
@@ -75,19 +75,20 @@ VOID TrackProcess(HANDLE pid, HANDLE ppid, ULONG_PTR ImageBase, SIZE_T ImageSize
     // Look up the process entry in the hash table
     PROCESS_ENTRY* curr = g_HashTable[idx];
     while (curr) {
+        // If pid exist, move on
         if (curr->ProcessId == pid) {
             break;
         }
         curr = curr->Next;
     }
 
-    // Event is not create and pid doesn't exist 
+    // Event does not have Create bit and pid doesn't exist 
     if (!Create && curr == NULL) {
         ExReleaseFastMutex(&g_HashTableLock);
         return;
     }
 
-    // New process, allocate resources and add to the hash table
+    // New process, no pid, adding new process and initialize it's data
     if (Create && !curr) {
         curr = (PROCESS_ENTRY*)ExAllocatePool2(POOL_FLAG_NON_PAGED, sizeof(PROCESS_ENTRY), COSMOS_TAG);
         if (!curr) {
@@ -156,7 +157,7 @@ PROCESS_ENTRY* CosmosLookupProcessByPid(HANDLE pid) {
    return NULL;  
 }
 
-// Being called from the IOCTL only
+// Being called from IOCTL only
 VOID CosmosDumpTrackedProcesses() {
 
     // Before trying copy hash table content to user space
@@ -165,7 +166,6 @@ VOID CosmosDumpTrackedProcesses() {
     // Tracking max user processes
     int count = 0;
 
-    // Making sure we get all process hash table && not exceeding max user process entries
     // Making sure we get all process hash table && not exceeding max user process entries
     for (int i = 0; i < HASH_BUCKETS && count < MAX_USER_PROCESSES; ++i) {
         PROCESS_ENTRY* entry = g_HashTable[i];
@@ -210,6 +210,7 @@ NTSTATUS CosmosCopyTrackedProcessesToUser(
 
     for (int i = 0; i < HASH_BUCKETS && copied < MaxCount; ++i) {
         PROCESS_ENTRY* entry = g_HashTable[i];
+        // Iterate, dont pass max table entries
         while (entry && copied < MaxCount) {
             RtlZeroMemory(&UserBuffer[copied], sizeof(COSMOS_PROC_INFO));
 

@@ -12,5 +12,6 @@
 #include <ntifs.h>
 #include <ntstrsafe.h>
 #include <wdmsec.h>
+#include <ntddk.h>
 
 #define MAX_PATH 260
