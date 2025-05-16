@@ -14,6 +14,16 @@
 #include "cosmos.h"
 #include "proc_hashlist.h"
 
+/*
+    PsSetImageLoadNotifyRotuine() is called when DLL / EXE is loaded into process image section and not per process,
+    however when new process is being created without loading DLL/Exe into process image,
+    PsSetImageLoadNotifyRotuine() wont be triggered.
+
+    Additionally, ephemeral processes might exit before PsSetImageLoadNotifyRoutine() will be called,
+    such process can be:
+    1. cmd.exe, when running short lived process for example: running logon script
+    2.
+*/
 extern "C"
 VOID ImageLoadNotifyCallback(
     _In_opt_ PUNICODE_STRING FullImageName,
@@ -40,25 +50,13 @@ VOID ImageLoadNotifyCallback(
         If i got callback from PsSetCreateProcessNotifyRoutine and tracked it (entry == PID),
         however PsSetLoadImageNotifyRoutine was not called yet, add the entry since i got FullImageName
     */
-
     if (!entry) {
         // First time seeing this PID at all -> create new and capture image
-        COSMOS_LOG("Cosmos: Creating and capturing image for PID %llu | Base: 0x%p | Size: 0x%Ix | Name: %wZ\n",
-            (ULONG64)ProcessId,
-            (PVOID)ImageInfo->ImageBase,
-            ImageInfo->ImageSize,
-            FullImageName);
-
-        TrackProcess(ProcessId, 0, (ULONG_PTR)ImageInfo->ImageBase, ImageInfo->ImageSize, FullImageName, TRUE);
+        TrackProcess(ProcessId, 0, (ULONG_PTR)ImageInfo->ImageBase, ImageInfo->ImageSize, FullImageName, TRUE, CAPTURE_SOURCE_IMAGE_LOAD);
     }
     else if (!entry->ImageCaptured) {
         // Entry exists, but image wasn't captured yet
-        COSMOS_LOG("Cosmos: Creating and capturing image for PID %llu | Base: 0x%p | Size: 0x%Ix\n",
-            (ULONG64)ProcessId,
-            (PVOID)ImageInfo->ImageBase,
-            ImageInfo->ImageSize);
-
-        TrackProcess(ProcessId, 0, (ULONG_PTR)ImageInfo->ImageBase, ImageInfo->ImageSize, FullImageName, FALSE);
+        TrackProcess(ProcessId, 0, (ULONG_PTR)ImageInfo->ImageBase, ImageInfo->ImageSize, FullImageName, FALSE, CAPTURE_SOURCE_IMAGE_LOAD);
     }
 
 }
@@ -86,19 +84,18 @@ VOID ProcessNotifyCallback(
     PEPROCESS eproc = NULL;
     PUNICODE_STRING process_name = NULL;
  
-    NTSTATUS process_lookup = STATUS_SUCCESS;
-    NTSTATUS se_locate_process_imagename = STATUS_SUCCESS;
+    NTSTATUS process_lookup = STATUS_ACCESS_DENIED;
+    NTSTATUS se_locate_process_imagename = STATUS_ACCESS_DENIED;
 
     if (Create) {
-        // Getting EPROCESS
+        // Getting EPROCESS, this is when PsSetImageLoadNotifyRoutine() misses newly created process
         process_lookup = PsLookupProcessByProcessId(ProcessId, &eproc);
         if (NT_SUCCESS(process_lookup)) {
-            se_locate_process_imagename = SeLocateProcessImageName(eproc, &process_name);
-            if (NT_SUCCESS(se_locate_process_imagename)) {
-                DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_ERROR_LEVEL, "Cosmos: EPROCESS Process Pid: (%llu) Process image name: (%wZ)\n",
-                    (ULONG64)(ULONG_PTR)ProcessId,
-                    process_name);
 
+            se_locate_process_imagename = SeLocateProcessImageName(eproc, &process_name);
+            if (NT_SUCCESS(se_locate_process_imagename) && process_name != NULL) {
+                // Adding the process since most likely PsSetImageLoadNotifyRoutine() was never triggered
+                TrackProcess(ProcessId, ParentId, 0, 0, process_name, TRUE, CAPTURE_SOURCE_CREATE_NOTIFY);
                 /*
                     Need to get both VritualSize and ImageBase from EPROCESS
                     ...
@@ -115,7 +112,7 @@ VOID ProcessNotifyCallback(
         }
         else {
             // Could not get EPROCESS, still register PID
-            TrackProcess(ProcessId, ParentId, 0, 0, NULL, TRUE);
+            TrackProcess(ProcessId, ParentId, 0, 0, NULL, TRUE, CAPTURE_SOURCE_CREATE_NOTIFY);
         }
 
         COSMOS_LOG("Cosmos: Process Created PID: %llu | PPID: %llu\n",
@@ -123,7 +120,7 @@ VOID ProcessNotifyCallback(
     }
     else {
         COSMOS_LOG("Cosmos: Process Deleted PID: %llu\n", (ULONG64)ProcessId);
-        TrackProcess(ProcessId, 0, (ULONG_PTR)0, 0, NULL, FALSE);
+        TrackProcess(ProcessId, 0, (ULONG_PTR)0, 0, NULL, FALSE, CAPTURE_SOURCE_NONE);
     }
 }
 

@@ -67,28 +67,32 @@ VOID CleanupProcessTable() {
     ExReleaseFastMutex(&g_HashTableLock);
 }
 
-VOID TrackProcess(HANDLE pid, HANDLE ppid, ULONG_PTR ImageBase, SIZE_T ImageSize, PUNICODE_STRING ImageName, BOOLEAN Create) {
+VOID TrackProcess(
+    HANDLE pid,
+    HANDLE ppid,
+    ULONG_PTR ImageBase,
+    SIZE_T ImageSize,
+    PUNICODE_STRING ImageName,
+    BOOLEAN Create,
+    CAPTURE_SOURCE Source
+) {
     ULONG idx = HashPid(pid);
 
     ExAcquireFastMutex(&g_HashTableLock);
 
-    // Look up the process entry in the hash table
     PROCESS_ENTRY* curr = g_HashTable[idx];
     while (curr) {
-        // If pid exist, move on
         if (curr->ProcessId == pid) {
             break;
         }
         curr = curr->Next;
     }
 
-    // Event does not have Create bit and pid doesn't exist 
     if (!Create && curr == NULL) {
         ExReleaseFastMutex(&g_HashTableLock);
         return;
     }
 
-    // New process, no pid, adding new process and initialize it's data
     if (Create && !curr) {
         curr = (PROCESS_ENTRY*)ExAllocatePool2(POOL_FLAG_NON_PAGED, sizeof(PROCESS_ENTRY), COSMOS_TAG);
         if (!curr) {
@@ -97,35 +101,36 @@ VOID TrackProcess(HANDLE pid, HANDLE ppid, ULONG_PTR ImageBase, SIZE_T ImageSize
         }
 
         RtlZeroMemory(curr, sizeof(PROCESS_ENTRY));
+
         curr->ProcessId = pid;
         curr->ParentProcessId = ppid;
         curr->ImageBase = ImageBase;
         curr->ImageSize = ImageSize;
         curr->ImageCaptured = FALSE;
         curr->Terminated = FALSE;
+        curr->CaptureSource = Source;
         curr->Next = g_HashTable[idx];
         g_HashTable[idx] = curr;
     }
-    
-    /*
-        Protecting from overwriting ImageBase | curr->ImageBase if both are not 0
-    */
-    if (ImageBase == 0 && curr->ImageBase == 0) {
-        curr->ImageBase = 0;
+
+    // Make sure to not overwrite existing base/size unless both are zero
+    if (ImageBase && curr->ImageBase == 0) {
+        curr->ImageBase = ImageBase;
     }
 
-    /*
-        Protecting from overwriting ImageSize | curr->ImageSize if both are not 0
-    */
-    if (ImageSize == 0 && curr->ImageSize == 0) {
+    if (ImageSize && curr->ImageSize == 0) {
         curr->ImageSize = ImageSize;
     }
 
-    // If Process exist, image name is provided but not initalized, add it
-    if (ImageName && curr && !curr->ImageCaptured && curr->ImageFileName.Buffer == NULL) {
+    if (ImageName && ImageName->Length > 0 && ImageName->Buffer != NULL &&
+        (!curr->ImageCaptured || curr->ImageFileName.Buffer == NULL)) {
+
         SIZE_T allocSize = ImageName->Length + sizeof(WCHAR);
         PWSTR buffer = (PWSTR)ExAllocatePool2(POOL_FLAG_NON_PAGED, allocSize, COSMOS_TAG);
         if (buffer) {
+            COSMOS_LOG("TrackProcess: Copying image for PID %llu | Source=%d | ImgName=%wZ",
+                (ULONG64)pid, Source, ImageName);
+
             RtlCopyMemory(buffer, ImageName->Buffer, ImageName->Length);
             buffer[ImageName->Length / sizeof(WCHAR)] = L'\0';
 
@@ -133,11 +138,23 @@ VOID TrackProcess(HANDLE pid, HANDLE ppid, ULONG_PTR ImageBase, SIZE_T ImageSize
             curr->ImageFileName.Length = ImageName->Length;
             curr->ImageFileName.MaximumLength = (USHORT)allocSize;
             curr->ImageCaptured = TRUE;
+            curr->CaptureSource = Source;
         }
+        else {
+            COSMOS_LOG("TrackProcess: Allocation failed for PID %llu | Source=%d", (ULONG64)pid, Source);
+        }
+    }
+    else if (!ImageName || ImageName->Length == 0 || ImageName->Buffer == NULL) {
+        COSMOS_LOG("TrackProcess: No image provided for PID %llu | Source=%d", (ULONG64)pid, Source);
+    }
+
+    if (!Create && curr) {
+        curr->Terminated = TRUE;
     }
 
     ExReleaseFastMutex(&g_HashTableLock);
 }
+
 
  
 PROCESS_ENTRY* CosmosLookupProcessByPid(HANDLE pid) {  
@@ -210,28 +227,37 @@ NTSTATUS CosmosCopyTrackedProcessesToUser(
 
     for (int i = 0; i < HASH_BUCKETS && copied < MaxCount; ++i) {
         PROCESS_ENTRY* entry = g_HashTable[i];
-        // Iterate, dont pass max table entries
         while (entry && copied < MaxCount) {
             RtlZeroMemory(&UserBuffer[copied], sizeof(COSMOS_PROC_INFO));
 
-            UserBuffer[copied].Pid = (ULONG_PTR)entry->ProcessId;
-            UserBuffer[copied].Ppid = (ULONG_PTR)entry->ParentProcessId;
+            UserBuffer[copied].Pid = PtrToUlong(entry->ProcessId);
+            UserBuffer[copied].Ppid = PtrToUlong(entry->ParentProcessId);
             UserBuffer[copied].ImageBase = (ULONG_PTR)entry->ImageBase;
             UserBuffer[copied].ImageSize = (SIZE_T)entry->ImageSize;
+            UserBuffer[copied].CaptureSource = (ULONG)entry->CaptureSource;
 
             if (entry->ImageCaptured && entry->ImageFileName.Buffer) {
                 USHORT len = entry->ImageFileName.Length / sizeof(WCHAR);
-                // Making sure there is null termination
+
                 if (len >= COSMOS_MAX_PATH) {
                     len = COSMOS_MAX_PATH - 1;
                 }
 
-                RtlCopyMemory(UserBuffer[copied].ImageFileName, entry->ImageFileName.Buffer, len * sizeof(WCHAR));
+                RtlCopyMemory(UserBuffer[copied].ImageFileName,
+                    entry->ImageFileName.Buffer,
+                    len * sizeof(WCHAR));
                 UserBuffer[copied].ImageFileName[len] = L'\0';
             }
             else {
+                // Still return struct with null image name
                 UserBuffer[copied].ImageFileName[0] = L'\0';
             }
+
+            COSMOS_LOG("CopyToUser: PID=%lu | Base=0x%p | Source=%lu | Captured=%d",
+                UserBuffer[copied].Pid,
+                (PVOID)UserBuffer[copied].ImageBase,
+                UserBuffer[copied].CaptureSource,
+                entry->ImageCaptured);
 
             ++copied;
             entry = entry->Next;
@@ -242,6 +268,5 @@ NTSTATUS CosmosCopyTrackedProcessesToUser(
     ExReleaseFastMutex(&g_HashTableLock);
 
     COSMOS_LOG("Cosmos: Returned %lu | Entries (max %lu)", copied, MaxCount);
-
     return STATUS_SUCCESS;
 }

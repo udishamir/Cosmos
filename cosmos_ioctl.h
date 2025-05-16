@@ -15,9 +15,10 @@
 #define COSMOS_MAX_PATH 260
 
 typedef struct _COSMOS_PROC_INFO {
-    ULONG_PTR Pid;
-    ULONG_PTR Ppid;
+    ULONG Pid;
+    ULONG Ppid;
     ULONG_PTR ImageBase;
-    SIZE_T  ImageSize;
-    WCHAR ImageFileName[COSMOS_MAX_PATH]; // null-terminated
+    SIZE_T ImageSize;
+    ULONG CaptureSource;
+    WCHAR ImageFileName[COSMOS_MAX_PATH];
 } COSMOS_PROC_INFO;

@@ -29,14 +29,38 @@ const IOCTL_COSMOS_DUMP_PROCESSES: u32 =
 const FILE_DEVICE_UNKNOWN: u32 = 0x00000022;
 const METHOD_BUFFERED: u32 = 0x0;
 
+// Creationg Source
+#[repr(u32)]
+#[derive(Debug)]
+pub enum CaptureSource {
+    None = 0,
+    CreateNotify = 1,
+    ImageLoad = 2,
+    LocateFallback = 3,
+    Unknown = 9999,
+}
+
+impl From<u32> for CaptureSource {
+    fn from(value: u32) -> Self {
+        match value {
+            0 => CaptureSource::None,
+            1 => CaptureSource::CreateNotify,
+            2 => CaptureSource::ImageLoad,
+            3 => CaptureSource::LocateFallback,
+            _ => CaptureSource::Unknown,
+        }
+    }
+}
+
 #[allow(non_camel_case_types)]
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
 struct COSMOS_PROC_INFO {
-    pid: usize,
-    ppid: usize,
-    image_base: usize,
-    image_size: usize,
+    pid: u32,
+    ppid: u32,
+    image_base: u64,
+    image_size: u64,
+    capture_source: u32,
     image_file_name: [u16; COSMOS_MAX_PATH],
 }
 
@@ -85,6 +109,7 @@ fn poll_driver_loop() {
                 ppid: 0,
                 image_base: 0,
                 image_size: 0,
+                capture_source: 0,
                 image_file_name: [0u16; COSMOS_MAX_PATH],
             };
             MAX_PROCESSES
@@ -110,6 +135,12 @@ fn poll_driver_loop() {
             break;
         }
 
+        if bytes_returned == 0 {
+            eprintln!("DeviceIoControl returned 0 bytes.");
+            thread::sleep(Duration::from_secs(1));
+            continue;
+        }
+
         let count = bytes_returned as usize / std::mem::size_of::<COSMOS_PROC_INFO>();
         for proc in &buffer[..count] {
             if seen_pids.insert(proc.pid) {
@@ -121,14 +152,27 @@ fn poll_driver_loop() {
 
                 let name = String::from_utf16_lossy(&proc.image_file_name[..end]);
 
-                // Might be malformed data from Kernel ??
-                if proc.image_base == 0 || proc.image_size == 0 {
-                    continue;
-                }
+                let source = CaptureSource::from(proc.capture_source);
 
                 println!(
-                    "PID: {:>6} | PPID: {:>6} | ImageBase: {:#x} | ImageSize: {:#x} | Image: {}",
-                    proc.pid, proc.ppid, proc.image_base, proc.image_size, name
+                    "PID: {:>6} | PPID: {:>6} | Base: {:#x} | Size: {:#x} | Source: {:?} | Image: {}",
+                    proc.pid, proc.ppid, proc.image_base, proc.image_size, source, name
+                );
+
+                // DEBUG, need to make sure its the same size as the COSMOS_PROC_INFO in kernel
+                println!(
+                    "Rust COSMOS_PROC_INFO size = {}",
+                    std::mem::size_of::<COSMOS_PROC_INFO>()
+                );
+
+                println!(
+                    "PID: {:>6} | PPID: {:>6} | ImageBase: {:#x} | ImageSize: {:#x} | Source: {:?} | Image: {}",
+                    proc.pid,
+                    proc.ppid,
+                    proc.image_base,
+                    proc.image_size,
+                    proc.capture_source,
+                    name
                 );
             }
         }
