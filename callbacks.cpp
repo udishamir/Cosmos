@@ -1,11 +1,11 @@
 ﻿/*
 	Cosmos XDR Driver
 
-    © 2024–2025 Udi Shamir. All Rights Reserved.
-    Unauthorized copying of this file, via any medium, is strictly prohibited.
-    Proprietary and confidential.
+	© 2025 Udi Shamir. All Rights Reserved.
+	Unauthorized copying of this file, via any medium, is strictly prohibited.
+	Proprietary and confidential.
 
-    Author: Udi Shamir
+	Author: Udi Shamir
 */
 
 #include "cosmos.h"
@@ -27,34 +27,32 @@
 	- Short-lived processes (ephemeral cmd.exe, PowerShell scripts)
 	- Timing issues between process creation and image loading
 	- Processes that bypass normal image loading mechanisms
-*/
 
-/*
 	Function: ImageLoadNotifyCallback
-	
+
 	Purpose: Called by Windows kernel when any executable image (EXE/DLL) is loaded
-			 into a process address space. This is our primary source of process
-			 image information including full file paths.
-	
+	into a process address space. This is our primary source of process
+	image information including full file paths.
+
 	Parameters:
-		FullImageName - Unicode string containing full path to loaded image
-		ProcessId - Handle to the process where image was loaded
-		ImageInfo - Detailed information about the loaded image
-	
+	FullImageName - Unicode string containing full path to loaded image
+	ProcessId - Handle to the process where image was loaded
+	ImageInfo - Detailed information about the loaded image
+
 	Callback Context: PASSIVE_LEVEL IRQL
-	
+
 	Edge Cases Handled:
-		- Kernel-mode images (drivers) - Ignored for security
-		- Empty image names - Logged and skipped
-		- Processes seen before image load - Updates existing entry
-		- New processes - Creates new tracking entry
-	
+	- Kernel-mode images (drivers) - Ignored for security
+	- Empty image names - Logged and skipped
+	- Processes seen before image load - Updates existing entry
+	- New processes - Creates new tracking entry
+
 	Security: This callback receives all system image loads, so filtering
-			  is critical to avoid performance impact and irrelevant data.
-	
+	is critical to avoid performance impact and irrelevant data.
+
 	Note: PsSetImageLoadNotifyRoutine() can miss very short-lived processes
-		  that exit before their main image is fully loaded. ProcessNotifyCallback
-		  serves as a backup for these cases.
+	that exit before their main image is fully loaded. ProcessNotifyCallback
+	serves as a backup for these cases.
 */
 extern "C"
 VOID ImageLoadNotifyCallback(

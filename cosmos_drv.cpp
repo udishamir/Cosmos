@@ -1,11 +1,11 @@
 /*
 	Cosmos XDR Driver
 
-     20242025 Udi Shamir. All Rights Reserved.
-    Unauthorized copying of this file, via any medium, is strictly prohibited.
-    Proprietary and confidential.
+	2025 Udi Shamir. All Rights Reserved.
+	Unauthorized copying of this file, via any medium, is strictly prohibited.
+	Proprietary and confidential.
 
-    Author: Udi Shamir
+	Author: Udi Shamir
 */
 
 #pragma comment(lib, "wdmsec.lib")
@@ -22,16 +22,17 @@ extern "C" void ThreadNotifyCallback(_In_ HANDLE ProcessId, _In_ HANDLE ThreadId
 
 /*
 	Function: CosmosCreate
-	
+
 	Purpose: Handles IRP_MJ_CREATE requests when userland applications call CreateFile on our device.
-			 This is the entry point for establishing communication with the driver.
-	
+	This is the entry point for establishing communication with the driver.
+
 	Parameters:
-		DeviceObject - Pointer to the device object (unused)
-		Irp - I/O Request Packet containing the request details
-	
+
+	DeviceObject - Pointer to the device object (unused)
+	Irp - I/O Request Packet containing the request details
+
 	Returns: STATUS_SUCCESS - Always succeeds to allow userland connection
-	
+
 	Security: Device access is already restricted by SDDL in device creation
 */
 
@@ -50,16 +51,16 @@ NTSTATUS CosmosCreate(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 
 /*
 	Function: CosmosClose
-	
+
 	Purpose: Handles IRP_MJ_CLOSE requests when userland applications call CloseHandle.
-			 Performs cleanup for the specific file handle being closed.
-	
+	Performs cleanup for the specific file handle being closed.
+
 	Parameters:
-		DeviceObject - Pointer to the device object (unused)
-		Irp - I/O Request Packet containing the request details
-	
+	DeviceObject - Pointer to the device object (unused)
+	Irp - I/O Request Packet containing the request details
+
 	Returns: STATUS_SUCCESS - Always succeeds
-	
+
 	Note: Currently no per-handle state is maintained, so no cleanup is needed
 */
 
@@ -78,16 +79,16 @@ NTSTATUS CosmosClose(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 
 /*
 	Function: CosmosCleanup
-	
+
 	Purpose: Handles IRP_MJ_CLEANUP requests when all handles to a file object are closed.
-			 This is called before IRP_MJ_CLOSE and allows for final cleanup operations.
-	
+	This is called before IRP_MJ_CLOSE and allows for final cleanup operations.
+
 	Parameters:
-		DeviceObject - Pointer to the device object (unused)
-		Irp - I/O Request Packet containing the request details
-	
+	DeviceObject - Pointer to the device object (unused)
+	Irp - I/O Request Packet containing the request details
+
 	Returns: STATUS_SUCCESS - Always succeeds
-	
+
 	Note: Currently no file object state is maintained, so no cleanup is needed
 */
 
@@ -106,23 +107,25 @@ NTSTATUS CosmosCleanup(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 
 /*
 	Function: DriverDeviceControl
-	
+
 	Purpose: Handles IRP_MJ_DEVICE_CONTROL requests (DeviceIoControl calls from userland).
-			 This is the main communication interface between the driver and userland applications.
-	
+	This is the main communication interface between the driver and userland applications.
+
 	Parameters:
-		DeviceObject - Pointer to the device object (unused)
-		Irp - I/O Request Packet containing the IOCTL request and buffers
-	
+
+	DeviceObject - Pointer to the device object (unused)
+	Irp - I/O Request Packet containing the IOCTL request and buffers
+
 	Returns: 
-		STATUS_SUCCESS - IOCTL was processed successfully
-		STATUS_BUFFER_TOO_SMALL - Output buffer is insufficient
-		STATUS_INVALID_PARAMETER - Invalid buffer pointer
-		STATUS_INVALID_DEVICE_REQUEST - Unsupported IOCTL code
-	
+
+	STATUS_SUCCESS - IOCTL was processed successfully
+	STATUS_BUFFER_TOO_SMALL - Output buffer is insufficient
+	STATUS_INVALID_PARAMETER - Invalid buffer pointer
+	STATUS_INVALID_DEVICE_REQUEST - Unsupported IOCTL code
+
 	Supported IOCTLs:
-		IOCTL_COSMOS_DUMP_PROCESSES - Retrieves tracked process information
-	
+	IOCTL_COSMOS_DUMP_PROCESSES - Retrieves tracked process information
+
 	Security: Access to this function is restricted by device SDDL (Admin/SYSTEM only)
 */
 
@@ -189,20 +192,20 @@ NTSTATUS DriverDeviceControl(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 extern "C"
 NTSTATUS DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING RegistryPath)
 {
-	/*
-		Routine Description:
-		This routine is called by the Operating System to initialize the driver.
+/*
+	Routine Description:
+	This routine is called by the Operating System to initialize the driver.
 
-		It creates the device object, fills in the dispatch entry points and
-		completes the initialization.
+	It creates the device object, fills in the dispatch entry points and
+	completes the initialization.
 
-		Arguments:
+	Arguments:
 
-		DriverObject - a pointer to the object that represents this device
-		driver.
+	DriverObject - a pointer to the object that represents this device
+	driver.
 
-		RegistryPath - a pointer to our Services key in the registry.
-	*/
+	RegistryPath - a pointer to our Services key in the registry.
+*/
     UNREFERENCED_PARAMETER(RegistryPath);
 
 	UNICODE_STRING deviceName = RTL_CONSTANT_STRING(L"\\Device\\CosmosDevice");
@@ -346,19 +349,21 @@ NTSTATUS DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING Regi
 
 /*
 	Function: DriverUnload
-	
+
 	Purpose: Called by the system when the driver is being unloaded.
-			 Performs cleanup of all resources allocated during driver operation.
-	
+	Performs cleanup of all resources allocated during driver operation.
+
 	Parameters:
-		DriverObject - Pointer to the driver object being unloaded
-	
+
+	DriverObject - Pointer to the driver object being unloaded
+
 	Cleanup Order:
-		1. Remove symbolic link (prevents new userland connections)
-		2. Delete device object (cleans up device stack)
-		3. Cleanup process tracking table (free allocated memory)
-		4. Unregister all kernel callbacks (prevents further notifications)
-	
+
+	1. Remove symbolic link (prevents new userland connections)
+	2. Delete device object (cleans up device stack)
+	3. Cleanup process tracking table (free allocated memory)
+	4. Unregister all kernel callbacks (prevents further notifications)
+
 	Note: Proper cleanup order is critical to prevent system crashes during unload
 */
 extern "C"

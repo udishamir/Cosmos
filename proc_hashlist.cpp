@@ -1,11 +1,11 @@
 /*
 	Cosmos XDR Driver
 
-     20242025 Udi Shamir. All Rights Reserved.
-    Unauthorized copying of this file, via any medium, is strictly prohibited.
-    Proprietary and confidential.
+	2025 Udi Shamir. All Rights Reserved.
+	Unauthorized copying of this file, via any medium, is strictly prohibited.
+	Proprietary and confidential.
 
-    Author: Udi Shamir
+	Author: Udi Shamir
 */
 
 #include <ntifs.h>
@@ -13,14 +13,14 @@
 #include "cosmos_ioctl.h"
 
 /*
-    Using 1031 prime number with modulus to reduce collisions.
+	Using 1031 prime number with modulus to reduce collisions.
 
 	Using 1031 will help to reduce collision and distribute the data more evenly across the hash table. For short lived
-    driver this is not really big of a deal but since this is an XDR driver it will be long lived, as long as the system is up.
+	driver this is not really big of a deal but since this is an XDR driver it will be long lived, as long as the system is up.
 
-    For small process table it is mostly insignificant.
+	For small process table it is mostly insignificant.
 
-    NOTE: collisions can not be avoided completely but it will be reduced comparing to using power of 2 with large process table.
+	NOTE: collisions can not be avoided completely but it will be reduced comparing to using power of 2 with large process table.
 */
 #define HASH_BUCKETS 1031
 #define COSMOS_TAG 'XSMC' // This is Cosmos Marker For The Memory Management 
@@ -30,8 +30,8 @@ static PROCESS_ENTRY* g_HashTable[HASH_BUCKETS];
 static FAST_MUTEX g_HashTableLock;
 
 /*
-    Generating key for the hash table, with less collisions 
-    Should be compatible with both x86_64 and x86
+	Generating key for the hash table, with less collisions 
+	Should be compatible with both x86_64 and x86
 */
 static ULONG HashPid(HANDLE pid) {
     return ((ULONG_PTR)pid) % HASH_BUCKETS;
@@ -57,7 +57,7 @@ VOID CleanupProcessTable() {
                 // Releasing memory allocated for ImageFileName from PsSetLoadImageNotifyRoutine
                 ExFreePoolWithTag(entry->ImageFileName.Buffer, COSMOS_TAG);
             }
-			// No ImageFileName allocated, release TAGGED (XSMC) memory
+	    // No ImageFileName allocated, release TAGGED (XSMC) memory
             ExFreePoolWithTag(entry, COSMOS_TAG);
             entry = next;
         }
