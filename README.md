@@ -5,25 +5,24 @@
 ##  Architecture Overview
 
 ```
+USERLAND (Ring 3)                       
 
-                    USERLAND (Ring 3)                       
+CosmosGuard (Rust Client)                                 
+Real-time Process Monitoring                          
+IOCTL Communication                                   
+Process Deduplication                                 
 
-  CosmosGuard (Rust Client)                                 
-   Real-time Process Monitoring                          
-   IOCTL Communication                                   
-   Process Deduplication                                 
+DeviceIoControl()
+\\.\CosmosLink
 
-                       DeviceIoControl()
-                       \\.\CosmosLink
+KERNEL (Ring 0)                         
 
-                    KERNEL (Ring 0)                         
-
-  Cosmos.sys (Kernel Driver)                                
-   PsSetLoadImageNotifyRoutine()                         
-   PsSetCreateProcessNotifyRoutine()                     
-   PsSetCreateThreadNotifyRoutine()                      
-   Secure IOCTL Interface                                
-   Process Hash Table Tracking                           
+Cosmos.sys (Kernel Driver)                                
+PsSetLoadImageNotifyRoutine()                         
+PsSetCreateProcessNotifyRoutine()                     
+PsSetCreateThreadNotifyRoutine()                      
+Secure IOCTL Interface                                
+Process Hash Table Tracking                           
 
 ```
 
