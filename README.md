@@ -1,6 +1,6 @@
 # Cosmos XDR - Advanced Windows Process Monitoring System
 
-**Cosmos** is a sophisticated Extended Detection and Response (XDR) solution for Windows, consisting of a secure kernel driver and modern Rust-based userland client. It provides comprehensive real-time process, thread, and image monitoring capabilities for security research, malware analysis, and system behavior monitoring.
+**Cosmos** is the base project for Extended Detection and Response (XDR) solution for Windows, XDR will part will be pushed later on, consisting of a secure kernel driver and modern Rust-based userland client. It provides comprehensive real-time process, thread, and image monitoring capabilities for security research, malware analysis, and system behavior monitoring.
 
 ##  Architecture Overview
 
