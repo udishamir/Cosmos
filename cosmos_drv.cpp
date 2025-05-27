@@ -1,7 +1,7 @@
-﻿/*
+/*
 	Cosmos XDR Driver
 
-    © 2024–2025 Udi Shamir. All Rights Reserved.
+     20242025 Udi Shamir. All Rights Reserved.
     Unauthorized copying of this file, via any medium, is strictly prohibited.
     Proprietary and confidential.
 
@@ -20,68 +20,151 @@ extern "C" void ImageLoadNotifyCallback(_In_opt_ PUNICODE_STRING FullImageName, 
 extern "C" void ProcessNotifyCallback(_In_ HANDLE ParentId, _In_ HANDLE ProcessId, _In_ BOOLEAN Create);
 extern "C" void ThreadNotifyCallback(_In_ HANDLE ProcessId, _In_ HANDLE ThreadId, _In_ BOOLEAN Create);
 
+/*
+	Function: CosmosCreate
+	
+	Purpose: Handles IRP_MJ_CREATE requests when userland applications call CreateFile on our device.
+			 This is the entry point for establishing communication with the driver.
+	
+	Parameters:
+		DeviceObject - Pointer to the device object (unused)
+		Irp - I/O Request Packet containing the request details
+	
+	Returns: STATUS_SUCCESS - Always succeeds to allow userland connection
+	
+	Security: Device access is already restricted by SDDL in device creation
+*/
+
 NTSTATUS CosmosCreate(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 {
 	UNREFERENCED_PARAMETER(DeviceObject);
+	
+	// Set successful completion status
 	Irp->IoStatus.Status = STATUS_SUCCESS;
 	Irp->IoStatus.Information = 0;
+	
+	// Complete the IRP with no priority boost
 	IoCompleteRequest(Irp, IO_NO_INCREMENT);
 	return STATUS_SUCCESS;
 }
+
+/*
+	Function: CosmosClose
+	
+	Purpose: Handles IRP_MJ_CLOSE requests when userland applications call CloseHandle.
+			 Performs cleanup for the specific file handle being closed.
+	
+	Parameters:
+		DeviceObject - Pointer to the device object (unused)
+		Irp - I/O Request Packet containing the request details
+	
+	Returns: STATUS_SUCCESS - Always succeeds
+	
+	Note: Currently no per-handle state is maintained, so no cleanup is needed
+*/
 
 NTSTATUS CosmosClose(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 {
 	UNREFERENCED_PARAMETER(DeviceObject);
+	
+	// Set successful completion status
 	Irp->IoStatus.Status = STATUS_SUCCESS;
 	Irp->IoStatus.Information = 0;
+	
+	// Complete the IRP with no priority boost
 	IoCompleteRequest(Irp, IO_NO_INCREMENT);
 	return STATUS_SUCCESS;
 }
 
+/*
+	Function: CosmosCleanup
+	
+	Purpose: Handles IRP_MJ_CLEANUP requests when all handles to a file object are closed.
+			 This is called before IRP_MJ_CLOSE and allows for final cleanup operations.
+	
+	Parameters:
+		DeviceObject - Pointer to the device object (unused)
+		Irp - I/O Request Packet containing the request details
+	
+	Returns: STATUS_SUCCESS - Always succeeds
+	
+	Note: Currently no file object state is maintained, so no cleanup is needed
+*/
+
 NTSTATUS CosmosCleanup(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 {
 	UNREFERENCED_PARAMETER(DeviceObject);
+	
+	// Set successful completion status
 	Irp->IoStatus.Status = STATUS_SUCCESS;
 	Irp->IoStatus.Information = 0;
+	
+	// Complete the IRP with no priority boost
 	IoCompleteRequest(Irp, IO_NO_INCREMENT);
 	return STATUS_SUCCESS;
 }
+
+/*
+	Function: DriverDeviceControl
+	
+	Purpose: Handles IRP_MJ_DEVICE_CONTROL requests (DeviceIoControl calls from userland).
+			 This is the main communication interface between the driver and userland applications.
+	
+	Parameters:
+		DeviceObject - Pointer to the device object (unused)
+		Irp - I/O Request Packet containing the IOCTL request and buffers
+	
+	Returns: 
+		STATUS_SUCCESS - IOCTL was processed successfully
+		STATUS_BUFFER_TOO_SMALL - Output buffer is insufficient
+		STATUS_INVALID_PARAMETER - Invalid buffer pointer
+		STATUS_INVALID_DEVICE_REQUEST - Unsupported IOCTL code
+	
+	Supported IOCTLs:
+		IOCTL_COSMOS_DUMP_PROCESSES - Retrieves tracked process information
+	
+	Security: Access to this function is restricted by device SDDL (Admin/SYSTEM only)
+*/
 
 extern "C"
 NTSTATUS DriverDeviceControl(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 {
 	UNREFERENCED_PARAMETER(DeviceObject);
 
-	// The IoGetCurrentIrpStackLocation routine returns a pointer to the caller's I/O stack location in the specified IRP.
+	// Extract the I/O stack location to access IOCTL parameters
 	PIO_STACK_LOCATION stack = IoGetCurrentIrpStackLocation(Irp);
 	ULONG code = stack->Parameters.DeviceIoControl.IoControlCode;
 
+	// Initialize return values
 	NTSTATUS status = STATUS_INVALID_DEVICE_REQUEST;
-	ULONG_PTR info = 0;
+	ULONG_PTR info = 0; // Bytes transferred
 
 	switch (code)
 	{
 		case IOCTL_COSMOS_DUMP_PROCESSES:
 		{
+			// Validate output buffer size - must fit at least one process entry
 			ULONG outLen = stack->Parameters.DeviceIoControl.OutputBufferLength;
 			if (outLen < sizeof(COSMOS_PROC_INFO)) {
 				status = STATUS_BUFFER_TOO_SMALL;
-
 				break;
 			}
 
+			// Get the system buffer (METHOD_BUFFERED ensures kernel-accessible memory)
 			COSMOS_PROC_INFO* outBuf = (COSMOS_PROC_INFO *)Irp->AssociatedIrp.SystemBuffer;
 			if (!outBuf) {
 				status = STATUS_INVALID_PARAMETER;
-
 				break;
 			}
 
+			// Calculate maximum number of process entries that fit in the buffer
 			ULONG maxCount = outLen / sizeof(COSMOS_PROC_INFO);
 			ULONG returned = 0;
 
+			// Copy tracked processes to userland buffer
 			status = CosmosCopyTrackedProcessesToUser(outBuf, maxCount, &returned);
 			if (NT_SUCCESS(status)) {
+				// Set the number of bytes actually written
 				info = returned * sizeof(COSMOS_PROC_INFO);
 			}
 
@@ -89,11 +172,12 @@ NTSTATUS DriverDeviceControl(PDEVICE_OBJECT DeviceObject, PIRP Irp)
 		}
 
 		default:
-			// No other IOCTL supported yet
+			// Unsupported IOCTL code
 			status = STATUS_INVALID_DEVICE_REQUEST;
 			break;
 	}
 
+	// Complete the IRP with status and information
 	Irp->IoStatus.Status = status;
 	Irp->IoStatus.Information = info;
 	IoCompleteRequest(Irp, IO_NO_INCREMENT);
@@ -117,7 +201,7 @@ NTSTATUS DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING Regi
 		DriverObject - a pointer to the object that represents this device
 		driver.
 
-		RegistryPath - a pointer to our Services key in the registry.	
+		RegistryPath - a pointer to our Services key in the registry.
 	*/
     UNREFERENCED_PARAMETER(RegistryPath);
 
@@ -126,7 +210,7 @@ NTSTATUS DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING Regi
 	PDEVICE_OBJECT deviceObject = NULL;
 	// SDDL Permission
 	UNICODE_STRING sddlPermission = RTL_CONSTANT_STRING(L"D:P(A;;GA;;;SY)(A;;GA;;;BA)");
-	
+
 
 	/*
 		Creating device link to allow user app connecting to the driver
@@ -142,11 +226,11 @@ NTSTATUS DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING Regi
 		Enforcing tight security, only Administrator and SYSTEM can access the device driver.
 
 		https://learn.microsoft.com/en-us/windows/win32/secauthz/security-descriptor-definition-language
-		Security Descriptor Defintion Language (SDDL): 
-		D: – Discretionary ACL (DACL) begins.
-		P – Protected DACL; prevents inheritance.
-		(A;;GA;;;SY) – Allow Generic All to System.
-		(A;;GA;;;BA) – Allow Generic All to Built-in Administrators.
+		Security Descriptor Defintion Language (SDDL):
+		D:  Discretionary ACL (DACL) begins.
+		P  Protected DACL; prevents inheritance.
+		(A;;GA;;;SY)  Allow Generic All to System.
+		(A;;GA;;;BA)  Allow Generic All to Built-in Administrators.
 
 		Never include entries for:
 		WD (Everyone)
@@ -159,8 +243,8 @@ NTSTATUS DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING Regi
 		If using Vs2022 you can utilize NuGet plugin manager:
 		https://learn.microsoft.com/en-us/windows-hardware/drivers/install-the-wdk-using-nuget
 
-		Do not use **IoCreateDevice** which is not secure. IoCreateDevice must be hardened from user space usually using INF file 
-		which is dangerous, we don't want to leave any open loose ends to user, that's a curve ball later. 
+		Do not use **IoCreateDevice** which is not secure. IoCreateDevice must be hardened from user space usually using INF file
+		which is dangerous, we don't want to leave any open loose ends to user, that's a curve ball later.
 	*/
 	NTSTATUS IoDeviceSecureStatus = IoCreateDeviceSecure(
 		DriverObject,
@@ -205,69 +289,98 @@ NTSTATUS DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING Regi
 
 
 	/*
-		InitProcessTable()
-
-		Initializing the process table, this table keeps track of process Pid, Ppid and ImageFilename.
-		Since right now i cannot utilize PsSetCreateProcessNotifyRoutineEx() im creating context using
-		hash table to follow process creation + DLL or EXE using the PsSetImageLoadNotifyRoutine().
-
-		Motivation is to to initialize single data structure that will sent data up to user when the user
-		app will initiate DeviceIoControl() request.
-
-		If ill manage to get Microsoft signing my driver i could utilize PsSetCreateProcessNotifyRoutineEx() and wont need 
-		PsSetImageLoadNotifyRoutine() to extract ImageFileName
+		Process Tracking Initialization
+		
+		Initialize the hash table that tracks processes by PID, PPID, and ImageFileName.
+		
+		Multi-source tracking strategy:
+		1. PsSetLoadImageNotifyRoutine() - Captures DLL/EXE loads with full image path
+		2. PsSetCreateProcessNotifyRoutine() - Captures process creation/termination events
+		3. SeLocateProcessImageName() - Fallback for processes missed by image load notifications
+		
+		This redundant approach ensures we capture short-lived processes that might be missed
+		by a single notification mechanism (e.g., ephemeral cmd.exe processes).
+		
+		Note: With Microsoft code signing, we could use PsSetCreateProcessNotifyRoutineEx()
+		which provides image name directly, eliminating the need for image load notifications.
 	*/
 	InitProcessTable();
 
-	
-	// Registering PsSetImageLoadNotifyRoutine()
-	
+	/*
+		Register Kernel Callbacks for Process Monitoring
+		
+		The order of registration is important:
+		1. Image load notifications - Primary source of process image information
+		2. Process notifications - Captures creation/termination events
+		3. Thread notifications - Currently logged but not processed
+	*/
+
+	// Register for image/DLL load notifications (primary process detection)
 	NTSTATUS LoadImageMon = PsSetLoadImageNotifyRoutine(ImageLoadNotifyCallback);
 	if (!NT_SUCCESS(LoadImageMon)) {
 		DbgPrint("Cosmos: Failed to register image load notification callback (0x%08X)\n", LoadImageMon);
 		return LoadImageMon;
 	}
 
-	// Registering PsSetCreateProcessNotifyRoutine()
+	// Register for process creation/termination notifications
 	NTSTATUS ProcCreateMon = PsSetCreateProcessNotifyRoutine(ProcessNotifyCallback, FALSE);
 	if (!NT_SUCCESS(ProcCreateMon)) {
 		DbgPrint("Cosmos: Failed to register process create notification callback (0x%08X)\n", ProcCreateMon);
 		return ProcCreateMon;
 	}
 
-	// Registering PsSetCreateThreadRoutine()
+	// Register for thread creation/termination notifications (for future use)
 	NTSTATUS ThreadCreateMon = PsSetCreateThreadNotifyRoutine(ThreadNotifyCallback);
 	if (!NT_SUCCESS(ThreadCreateMon)) {
-		DbgPrint("Cosmos: Failed to register thread create notification callback (0x%08X)\n", ProcCreateMon);
-		return ProcCreateMon;
+		DbgPrint("Cosmos: Failed to register thread create notification callback (0x%08X)\n", ThreadCreateMon);
+		return ThreadCreateMon;
 	}
 
     // Set the driver unload routine
     DriverObject->DriverUnload = DriverUnload;
 
     DbgPrint("Cosmos: Driver Loaded Successfully!\n");
-    
+
     return STATUS_SUCCESS;
 }
 
+/*
+	Function: DriverUnload
+	
+	Purpose: Called by the system when the driver is being unloaded.
+			 Performs cleanup of all resources allocated during driver operation.
+	
+	Parameters:
+		DriverObject - Pointer to the driver object being unloaded
+	
+	Cleanup Order:
+		1. Remove symbolic link (prevents new userland connections)
+		2. Delete device object (cleans up device stack)
+		3. Cleanup process tracking table (free allocated memory)
+		4. Unregister all kernel callbacks (prevents further notifications)
+	
+	Note: Proper cleanup order is critical to prevent system crashes during unload
+*/
 extern "C"
 VOID DriverUnload(_In_ PDRIVER_OBJECT DriverObject)
 {
 	UNREFERENCED_PARAMETER(DriverObject);
 	UNICODE_STRING symLink = RTL_CONSTANT_STRING(L"\\??\\CosmosLink");
 
-	// Removing driver link
+	// Step 1: Remove symbolic link to prevent new userland connections
 	IoDeleteSymbolicLink(&symLink);
 
-	// Remove Device From User
+	// Step 2: Delete the device object and clean up device stack
 	if (DriverObject->DeviceObject) {
 		IoDeleteDevice(DriverObject->DeviceObject);
 	}
 
-	// Cleanup the process table
+	// Step 3: Cleanup process tracking data structures and free memory
 	CleanupProcessTable();
 
-	// Unregister from image load notifications
+	// Step 4: Unregister all kernel callbacks to stop receiving notifications
+	
+	// Unregister image load notifications
 	NTSTATUS UnloadImageMon = PsRemoveLoadImageNotifyRoutine(ImageLoadNotifyCallback);
 	if (!NT_SUCCESS(UnloadImageMon)) {
 		DbgPrint("Cosmos: Failed to unregister image load notification callback (0x%08X)\n", UnloadImageMon);
@@ -276,7 +389,7 @@ VOID DriverUnload(_In_ PDRIVER_OBJECT DriverObject)
 		DbgPrint("Cosmos: Successfully unregistered image load notification callback\n");
 	}
 	
-	// Unregister from process create notifications
+	// Unregister process creation notifications (TRUE = remove callback)
 	NTSTATUS UnloadCreateProcessMon = PsSetCreateProcessNotifyRoutine(ProcessNotifyCallback, TRUE);
 	if (!NT_SUCCESS(UnloadCreateProcessMon)) {
 		DbgPrint("Cosmos: Failed to unregister process create notification callback (0x%08X)\n", UnloadCreateProcessMon);
@@ -285,7 +398,7 @@ VOID DriverUnload(_In_ PDRIVER_OBJECT DriverObject)
 		DbgPrint("Cosmos: Successfully unregistered process create notification callback\n");
 	}
 
-	// Unregister from process create notifications
+	// Unregister thread creation notifications
 	NTSTATUS UnloadCreateThreadMon = PsRemoveCreateThreadNotifyRoutine(ThreadNotifyCallback);
 	if (!NT_SUCCESS(UnloadCreateThreadMon)) {
 		DbgPrint("Cosmos: Failed to unregister thread create notification callback (0x%08X)\n", UnloadCreateThreadMon);

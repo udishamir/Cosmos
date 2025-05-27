@@ -1,0 +1,10 @@
+/home/ta1on/code/Cosmos/cosmosguard/target/debug/deps/libwindows_future-11c2208f5cfe2b16.rmeta: /home/ta1on/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/windows-future-0.2.0/src/lib.rs /home/ta1on/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/windows-future-0.2.0/src/bindings.rs /home/ta1on/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/windows-future-0.2.0/src/bindings_impl.rs /home/ta1on/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/windows-future-0.2.0/src/get.rs /home/ta1on/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/windows-future-0.2.0/src/waiter.rs /home/ta1on/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/windows-future-0.2.0/src/../readme.md
+
+/home/ta1on/code/Cosmos/cosmosguard/target/debug/deps/windows_future-11c2208f5cfe2b16.d: /home/ta1on/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/windows-future-0.2.0/src/lib.rs /home/ta1on/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/windows-future-0.2.0/src/bindings.rs /home/ta1on/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/windows-future-0.2.0/src/bindings_impl.rs /home/ta1on/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/windows-future-0.2.0/src/get.rs /home/ta1on/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/windows-future-0.2.0/src/waiter.rs /home/ta1on/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/windows-future-0.2.0/src/../readme.md
+
+/home/ta1on/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/windows-future-0.2.0/src/lib.rs:
+/home/ta1on/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/windows-future-0.2.0/src/bindings.rs:
+/home/ta1on/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/windows-future-0.2.0/src/bindings_impl.rs:
+/home/ta1on/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/windows-future-0.2.0/src/get.rs:
+/home/ta1on/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/windows-future-0.2.0/src/waiter.rs:
+/home/ta1on/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/windows-future-0.2.0/src/../readme.md:
