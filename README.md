@@ -223,4 +223,4 @@ MIT License - See [LICENSE](LICENSE) file for details.
 ---
 
 **Author**: Udi Shamir  
-**Copyright**:  20242025 Udi Shamir. All Rights Reserved.
+**Copyright**:  2024 - 2025 Udi Shamir. All Rights Reserved.
